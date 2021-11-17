@@ -1,6 +1,9 @@
 import re
 
+import django
+import pytest
 from django.conf import settings
+from django.db.models import Count
 from django.db.utils import NotSupportedError, DataError
 
 from django_multitenant.utils import (set_current_tenant,
@@ -415,6 +418,8 @@ class TenantModelTest(BaseTestCase):
         tasks = Task.objects.exclude(project__isnull=True)
         self.assertEqual(tasks.count(), 150)
 
+    @pytest.mark.skipif(not django.VERSION < (3, 2),
+                        reason="Django 3.2 changed the generated query to one that's not supported by Citus")
     def test_exclude_related(self):
         from .models import Project, Manager, ProjectManager
         project = self.projects[0]
@@ -714,3 +719,11 @@ class MultipleTenantModelTest(BaseTestCase):
         unset_current_tenant()
         project = Project.objects.filter(account=account).first()
         self.assertEqual(project.name, 'test update name')
+
+    def test_aggregate(self):
+        from .models import ProjectManager
+        projects = self.projects
+        managers = self.project_managers
+        unset_current_tenant()
+        projects_per_manager = ProjectManager.objects.annotate(Count('project_id'))
+        list(projects_per_manager)
