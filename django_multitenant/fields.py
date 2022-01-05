@@ -1,14 +1,18 @@
 import logging
+import django
 from django.db import models
 from django.db.models.expressions import Col
+from django.db.models.sql.where import WhereNode
+from django.conf import settings
 
+from .exceptions import EmptyTenant
 from .utils import get_current_tenant, get_tenant_column, get_tenant_filters
 
 logger = logging.getLogger(__name__)
 
 
 class TenantForeignKey(models.ForeignKey):
-    '''
+    """
     Should be used in place of models.ForeignKey for all foreign key relationships to
     subclasses of TenantModel.
 
@@ -17,7 +21,7 @@ class TenantForeignKey(models.ForeignKey):
 
     Adds clause to forward accesses through this field to include tenant_id in the
     TenantModel lookup.
-    '''
+    """
 
     # Override
     def get_extra_descriptor_filter(self, instance):
@@ -38,16 +42,35 @@ class TenantForeignKey(models.ForeignKey):
         if current_tenant:
             return get_tenant_filters(self.related_model)
         else:
-            logger.warn('TenantForeignKey field %s.%s '
-                        'accessed without a current tenant set. '
-                        'This may cause issues in a partitioned environment. '
-                        'Recommend calling set_current_tenant() before accessing '
-                        'this field.',
-                        self.model.__name__, self.name)
+            empty_tenant_message = (
+                f"TenantForeignKey field {self.model.__name__}.{self.name} "
+                "accessed without a current tenant set. "
+                "This may cause issues in a partitioned environment. "
+                "Recommend calling set_current_tenant() before accessing "
+                "this field."
+            )
+
+            if getattr(settings, "TENANT_STRICT_MODE", False):
+                raise EmptyTenant(empty_tenant_message)
+
+            logger.warning(empty_tenant_message)
             return super(TenantForeignKey, self).get_extra_descriptor_filter(instance)
 
     # Override
-    def get_extra_restriction(self, where_class, alias, related_alias):
+    # Django 4.0 removed the where_class argument from this method, so
+    # depending on the version we define the function with a different
+    # signature.
+    if django.VERSION >= (4, 0):
+
+        def get_extra_restriction(self, alias, related_alias):
+            return self.get_extra_restriction_citus(alias, related_alias)
+
+    else:
+
+        def get_extra_restriction(self, where_class, alias, related_alias):
+            return self.get_extra_restriction_citus(alias, related_alias)
+
+    def get_extra_restriction_citus(self, alias, related_alias):
         """
         Return a pair condition used for joining and subquery pushdown. The
         condition is something that responds to as_sql(compiler, connection)
@@ -78,15 +101,15 @@ class TenantForeignKey(models.ForeignKey):
         lookup_rhs = rhs_tenant_field.get_col(alias)
 
         # Create "AND lhs.tenant_id = rhs.tenant_id" as a new condition
-        lookup = lhs_tenant_field.get_lookup('exact')(lookup_lhs, lookup_rhs)
-        condition = where_class()
-        condition.add(lookup, 'AND')
+        lookup = lhs_tenant_field.get_lookup("exact")(lookup_lhs, lookup_rhs)
+        condition = WhereNode()
+        condition.add(lookup, "AND")
         return condition
 
 
 class TenantOneToOneField(models.OneToOneField, TenantForeignKey):
     # Override
     def __init__(self, *args, **kwargs):
-        kwargs['unique'] = False
+        kwargs["unique"] = False
         super(TenantForeignKey, self).__init__(*args, **kwargs)
 

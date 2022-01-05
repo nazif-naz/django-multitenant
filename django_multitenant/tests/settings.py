@@ -7,25 +7,27 @@ BASE_PATH = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
 )
 
+if django.VERSION >= (4, 0):
+    test_db = {"NAME": "postgres"}
+else:
+    test_db = {"NAME": "postgres", "SERIALIZE": False}
+
 DATABASES = {
     "default": {
-        'ENGINE': 'django_multitenant.backends.postgresql',
+        "ENGINE": "django_multitenant.backends.postgresql",
         "NAME": "postgres",
         "USER": "postgres",
         "PASSWORD": "",
         "HOST": "localhost",
         "PORT": 5600,
-        "TEST": {
-            "NAME": "postgres",
-            "SERIALIZE": False
-        }
+        "TEST": test_db,
     }
 }
 
 SITE_ID = 1
 DEBUG = True
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = (
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -35,8 +37,6 @@ MIDDLEWARE_CLASSES = (
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 )
 
-
-MIDDLEWARE = MIDDLEWARE_CLASSES
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -56,16 +56,16 @@ ROOT_URLCONF = "django_multitenant.tests.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-                'django.template.context_processors.i18n',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "django.template.context_processors.i18n",
             ],
         },
     },
@@ -73,3 +73,6 @@ TEMPLATES = [
 
 USE_CITUS = True
 CITUS_EXTENSION_INSTALLED = True
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+USE_TZ = True
