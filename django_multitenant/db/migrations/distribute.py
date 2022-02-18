@@ -7,11 +7,16 @@ from django_multitenant.utils import get_tenant_column
 
 
 class Distribute(Operation):
-    def __init__(self, model_name, reference=False, reverse_ignore=False, is_new_model=False):
+    def __init__(self, model_name, reference=False, reverse_ignore=False, is_new_model=False, new_model_tenant_column=''):
         self.reverse_ignore = reverse_ignore
         self.model_name = model_name
         self.reference = reference
+
+        if is_new_model and not new_model_tenant_column:
+            raise ValueError("Need to supply new_model_tenant_column")
+
         self.is_new_model = is_new_model
+        self.new_model_tenant_column = new_model_tenant_column
 
     def get_query(self):
         if self.reference:
@@ -67,7 +72,10 @@ class Distribute(Operation):
 
         self.args = [fake_model._meta.db_table]
         if not self.reference:
-            self.args.append(get_tenant_column(self.model))
+            if self.is_new_model:
+                self.args.append(self.new_model_tenant_column)
+            else:
+                self.args.append(get_tenant_column(self.model))
 
         schema_editor.execute(self.get_query(), params=self.args)
 
