@@ -7,10 +7,11 @@ from django_multitenant.utils import get_tenant_column
 
 
 class Distribute(Operation):
-    def __init__(self, model_name, reference=False, reverse_ignore=False):
+    def __init__(self, model_name, reference=False, reverse_ignore=False, is_new_model=False):
         self.reverse_ignore = reverse_ignore
         self.model_name = model_name
         self.reference = reference
+        self.is_new_model = is_new_model
 
     def get_query(self):
         if self.reference:
@@ -56,7 +57,7 @@ class Distribute(Operation):
             if model.__name__ == self.model_name:
                 self.model = model
 
-        if fake_model and not self.model:
+        if fake_model and not self.model and not self.is_new_model:
             # The model has been deleted
             # We can't distribute that table as we don't have the initial model anymore
             # So no idea what the tenant column is
