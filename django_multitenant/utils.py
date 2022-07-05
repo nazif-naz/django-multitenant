@@ -53,11 +53,21 @@ def get_tenant_field(model_class_or_instance):
     try:
         return next(field for field in all_fields if field.column == tenant_column)
     except StopIteration:
-        raise ValueError(
-            'No field found in {} with column name "{}"'.format(
-                model_class_or_instance, tenant_column
+        if model_class_or_instance.__module__ == '__fake__':
+            """
+            Fake models don't have __repr__
+            """
+            raise ValueError(
+                'No field found in {} with column name "{}"'.format(
+                    model_class_or_instance._meta.label_lower, tenant_column
+                )
             )
-        )
+        else:
+            raise ValueError(
+                'No field found in {} with column name "{}"'.format(
+                    model_class_or_instance, tenant_column
+                )
+            )
 
 
 def get_object_tenant(instance):
